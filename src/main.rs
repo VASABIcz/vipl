@@ -3,7 +3,7 @@ extern crate core;
 use std::any::Any;
 use std::fmt::{Display, format};
 use std::process::id;
-use crate::Tree::Operator;
+use crate::Expression::Operator;
 
 /*
 DONE
@@ -34,11 +34,11 @@ function declaration
 
 #[derive(Debug, Clone)]
 enum Op {
-    Sub(Box<Tree>, Box<Tree>),
-    Mul(Box<Tree>, Box<Tree>),
-    Add(Box<Tree>, Box<Tree>),
-    Div(Box<Tree>, Box<Tree>),
-    Function(String, Box<Option<Tree>>, Box<Option<Tree>>, Box<Option<Tree>>, Box<Option<Tree>>, Box<Option<Tree>>, Box<Option<Tree>>)
+    Sub(Box<Expression>, Box<Expression>),
+    Mul(Box<Expression>, Box<Expression>),
+    Add(Box<Expression>, Box<Expression>),
+    Div(Box<Expression>, Box<Expression>),
+    Function(String, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>)
 }
 
 #[derive(Debug, Clone)]
@@ -50,16 +50,47 @@ enum OpType {
 }
 
 #[derive(Debug, Clone)]
-enum Tree {
+enum Expression {
     Literal(u32),
     Operator(Op),
     Variable(String)
 }
 
 #[derive(Debug, Clone)]
+
 struct State {
     offset: u32,
     generated: String
+}
+
+enum VariableType {
+    Static,
+    Var
+}
+
+enum Operation{
+    // special type return, break
+    Variable {  // FIXME variable declaration / assignment
+        typ: VariableType,
+        name: String,
+        exp: Expression
+    },
+    Loop {
+        body: Body
+    },
+    Evaluation {
+        exp: Expression
+    },
+    ControlFlow {
+        exp: Expression,
+        yes: Body,
+        no: Body
+    }
+}
+
+struct Body {
+    state: State, // FIXME
+    body: Vec<Operation>
 }
 
 impl State {
@@ -86,16 +117,16 @@ impl State {
     }
 
     pub fn arithmetic<T: Display, R: Display>(self: &mut Self, op: T, v: R) {
-        self.add_line(format!(";//{} {} to [ebp-{}]", op, v, 4*(self.offset-1)));
-        self.add_line(format!("mov rax, [ebp-{}]", 4*(self.offset-1)));
-        self.add_line(format!("{op} rax, {}", v));
-        self.add_line(format!("mov [ebp-{}], rax", 4*(self.offset-1)));
+        // self.add_line(format!(";//{} {} to [ebp-{}]", op, v, 4*(self.offset-1)));
+        self.add_line(format!("mov eax, [ebp-{}]", 4*(self.offset-1)));
+        self.add_line(format!("{op} eax, {}", v));
+        self.add_line(format!("mov dword [ebp-{}], eax", 4*(self.offset-1)));
     }
 
     pub fn arithmetic_previous<T: Display>(self: &mut Self, op: T) {
-        self.add_line(format!("mov rax, [ebp-{}]", 4*(self.offset-2)));
-        self.add_line(format!("{op} rax, [ebp-{}]", 4*(self.offset-1)));
-        self.add_line(format!("mov [ebp-{}], rax", 4*(self.offset-2)));
+        self.add_line(format!("mov eax, [ebp-{}]", 4*(self.offset-2)));
+        self.add_line(format!("{op} eax, [ebp-{}]", 4*(self.offset-1)));
+        self.add_line(format!("mov dword [ebp-{}], eax", 4*(self.offset-2)));
     }
 
     fn push<T: Display>(self: &mut Self, v: T) {
@@ -109,7 +140,7 @@ impl State {
     }
 
     fn pop0(self: &mut Self) {
-        self.add_line(String::from("pop"));
+        self.add_line(String::from("pop edx"));
         self.dec()
     }
 
@@ -118,10 +149,23 @@ impl State {
         self.generated.push_str("\n");
     }
 
-    pub fn code_gen(self: &mut Self, ast: Tree) {
+    pub fn asm2sym(asm: &str) -> &str {
+        return match asm {
+            "add" => "+",
+            "imul" => "*",
+            "sub" => "-",
+            "div" => "/",
+            _ => {
+                eprintln!("unknown asm {} in asm2sym", asm);
+                "UNKNOWN"
+            }
+        }
+    }
+
+    pub fn code_gen(self: &mut Self, ast: Expression) {
         match ast {
-            Tree::Literal(v) => {}
-            Tree::Operator(v) => {
+            Expression::Literal(v) => {}
+            Expression::Operator(v) => {
                 match v {
                     Op::Sub(l, r) => {}
                     Op::Mul(l, r) => {}
@@ -130,7 +174,7 @@ impl State {
                     Op::Function(name, a1, a2, a3, a4, a5, a6) => {}
                 }
             }
-            Tree::Variable(v) => {}
+            Expression::Variable(v) => {}
         }
     }
 
@@ -138,9 +182,9 @@ impl State {
         self.add_line(format!("call {}", name));
     }
 
-    pub fn handle_idk(self: &mut Self, a: Box<Tree>, free: bool) {
+    pub fn handle_arithmetics(self: &mut Self, a: Box<Expression>, free: bool) {
         match *a {
-            Tree::Operator(op) => {
+            Expression::Operator(op) => {
                 match op {
                     Op::Function(_, _, _, _, _, _, _) => {
                         // unimplemented!();
@@ -152,7 +196,7 @@ impl State {
                                 (l, r, String::from("sub"))
                             }
                             Op::Mul(l, r) => {
-                                (l, r, String::from("mul"))
+                                (l, r, String::from("imul"))
                             }
                             Op::Add(l, r) => {
                                 (l, r, String::from("add"))
@@ -163,16 +207,17 @@ impl State {
                             _ => panic!("idk")
                         };
                         match *l {
-                            Tree::Literal(v) => {
-                                self.push(v);
+                            Expression::Literal(v1) => {
+                                self.push(v1);
                                 match *r {
-                                    Tree::Literal(v) => {
-                                        self.arithmetic(op, v)
+                                    Expression::Literal(v) => {
+                                        self.add_line(format!("; {v1} {} {v}", State::asm2sym(&op)));
+                                        self.arithmetic(&op, v);
                                     }
-                                    Tree::Operator(_) => {
-                                        self.handle_idk(r, false)
+                                    Expression::Operator(_) => {
+                                        self.handle_arithmetics(r, false)
                                     }
-                                    Tree::Variable(_) => {
+                                    Expression::Variable(_) => {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} ebp-{} {}", 4*(self.offset-1), 8))
                                     }
@@ -181,35 +226,34 @@ impl State {
                                     self.pop0();
                                 }
                             }
-                            Tree::Operator(_) => {
-                                self.handle_idk(l, false);
+                            Expression::Operator(_) => {
+                                self.handle_arithmetics(l, false);
 
                                 match *r {
-                                    Tree::Literal(v) => {
+                                    Expression::Literal(v) => {
                                         self.arithmetic(op, v);
                                     }
-                                    Tree::Operator(_) => {
-                                        self.handle_idk(r, false);
+                                    Expression::Operator(_) => {
+                                        self.handle_arithmetics(r, false);
                                         self.arithmetic_previous(op);
-                                        self.dec();
-                                        self.add_line(String::from("pop"))
+                                        self.pop0();
                                     }
-                                    Tree::Variable(_) => {
+                                    Expression::Variable(_) => {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} [ebp-{}] {}", 4*(self.offset-1), 5))
                                     }
                                 }
                             }
-                            Tree::Variable(v) => {
+                            Expression::Variable(v) => {
                                 self.push(v);
                                 match *r {
-                                    Tree::Literal(v) => {
+                                    Expression::Literal(v) => {
                                         self.arithmetic(op, v);
                                     }
-                                    Tree::Operator(_) => {
-                                        self.handle_idk(r, false)
+                                    Expression::Operator(_) => {
+                                        self.handle_arithmetics(r, false)
                                     }
-                                    Tree::Variable(_) => {
+                                    Expression::Variable(_) => {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} [ebp-{}] {}", 4*(self.offset-1), 8))
                                     }
@@ -226,16 +270,15 @@ impl State {
         }
     }
 
-    pub fn handle_argument(self: &mut Self, a: Box<Tree>) {
+    pub fn handle_argument(self: &mut Self, a: Box<Expression>) {
         match *a {
-            Tree::Literal(v) => {
+            Expression::Literal(v) => {
                 self.push(v);
             }
-            Tree::Operator(_) => {
-                let mut xd = 1;
-                self.handle_idk(a.clone(), false);
+            Expression::Operator(_) => {
+                self.handle_arithmetics(a.clone(), false);
             }
-            Tree::Variable(v) => {
+            Expression::Variable(v) => {
                 unimplemented!();
                 format!("push {}", 5);
             }
@@ -258,6 +301,20 @@ impl State {
             _ => panic!("not a function")
         }
     }
+
+    pub fn handle_all(self: &mut Self, op: Box<Expression>) {
+        match *op {
+            Expression::Literal(v) => {
+                self.handle_arithmetics(op, true);
+            }
+            Operator(v) => {
+                self.handle_arithmetics(op.clone(), true);
+            }
+            Expression::Variable(v) => {
+                self.handle_arithmetics(op.clone(), true);
+            }
+        }
+    }
 }
 
 // x = test(5-y*3, (7-3)*(5+8))
@@ -267,33 +324,33 @@ pub fn main() {
         String::from("test"),
         Box::new(
             Some(
-            Tree::Operator(
+            Expression::Operator(
                 Op::Sub(
                     Box::new(
-                        Tree::Operator(
+                        Expression::Operator(
                             Op::Mul(
-                                Box::new(Tree::Literal(69)),
-                                Box::new(Tree::Literal(5))
+                                Box::new(Expression::Literal(69)),
+                                Box::new(Expression::Literal(5))
                             )
                         )
                     ),
-                    Box::new(Tree::Literal(3))
+                    Box::new(Expression::Literal(3))
                 )
             )
         )),
         Box::new(Some(
-            Tree::Operator(
+            Expression::Operator(
                 Op::Mul(
-                    Box::new(Tree::Operator(
+                    Box::new(Expression::Operator(
                         Op::Sub(
-                            Box::new(Tree::Literal(7)),
-                            Box::new(Tree::Literal(3))
+                            Box::new(Expression::Literal(7)),
+                            Box::new(Expression::Literal(3))
                         ),
                     )),
-                    Box::new(Tree::Operator(
+                    Box::new(Expression::Operator(
                         Op::Add(
-                            Box::new(Tree::Literal(5)),
-                            Box::new(Tree::Literal(8))
+                            Box::new(Expression::Literal(5)),
+                            Box::new(Expression::Literal(8))
                         ),
                     ))
                 )
@@ -308,15 +365,15 @@ pub fn main() {
     let test2 = Op::Function(
         String::from("test"),
         Box::new(
-            Some(Tree::Operator(Op::Add(
-                Box::new(Tree::Operator(Op::Add(
-                    Box::new(Tree::Literal(53)),
-                    Box::new(Tree::Literal(69))
+            Some(Expression::Operator(Op::Add(
+                Box::new(Expression::Operator(Op::Add(
+                    Box::new(Expression::Literal(53)),
+                    Box::new(Expression::Literal(69))
                 ))
                 ),
-                Box::new(Tree::Operator(Op::Add(
-                    Box::new(Tree::Literal(53)),
-                    Box::new(Tree::Literal(69))
+                Box::new(Expression::Operator(Op::Add(
+                    Box::new(Expression::Literal(53)),
+                    Box::new(Expression::Literal(69))
                 ))
                 )
             ))
@@ -329,7 +386,7 @@ pub fn main() {
     );
 
     let mut state = State::new();
-    let res = state.handle_function(test2);
+    let res = state.handle_function(idk);
     println!("\n");
     println!("{}", state.generated);
 }

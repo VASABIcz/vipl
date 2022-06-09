@@ -9,12 +9,12 @@ debug:
     push message
     call printf
     add esp, 8
-    leave
+    ret
 
 main:
-    push esp
-    push ebp
+    mov ebp, esp
+    sub ebp, 4
+
 
     jmp debug
-
     ret

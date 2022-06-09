@@ -2,7 +2,7 @@
 ; assemble and link with:
 ; nasm -f elf printf-test.asm && gcc -m32 -o printf-test printf-test.o
 ;
-section .text
+section .data
 global main
 extern printf
 
