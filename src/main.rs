@@ -1,22 +1,16 @@
 mod code_gen;
 mod data_types;
 mod lexer;
-mod parser;
 mod lexer_prototype;
+mod parser;
 
 extern crate core;
 
-use crate::code_gen::{CodeGen, FunctionDef, Operation};
+use crate::code_gen::{CodeGen, Operation};
 use crate::data_types::*;
 // use crate::lexer::*;
 use crate::lexer_prototype::*;
 use crate::parser::Parser;
-
-
-
-
-
-
 
 /*
 DONE
@@ -63,17 +57,34 @@ fn main() {
 // x = test(5-y*3, (7-3)*(5+8))
 pub fn main() {
     let to_parse = r#"
-    fn __main(){
+    fn __main() {
         let a=79+38*test(91);
+
+        if (1) {
+            print("uwu");
+        }
+
+        let a = 0;
+        loop {
+            let a = a + 1;
+
+            if (a-10) {
+                break;
+            }
+        }
+
+        return 0;
     }
     "#;
     let mut lexer = Lexer::new(to_parse.to_string());
     lexer.parse();
     let tokens = lexer.tokens();
+    println!("tokens: ");
+    print_list(&tokens);
     let mut parser = Parser {
         tokens,
         index: 0,
-        ast: vec![]
+        ast: vec![],
     };
     let ast = parser.parse_function();
     println!("ast: {:?}", &ast)

@@ -1,21 +1,21 @@
+
+use crate::Token::{Separator};
+use crate::{print_list, KeywordType, LiteralType, OperatorType, SeparatorType, Token};
 use std::collections::HashMap;
-use crate::{KeywordType, LiteralType, Op, OperatorType, print_list, SeparatorType, Token};
-use crate::Token::{Identifier, Separator};
 use std::string::String;
-use crate::Expression::Operator;
 
 pub struct Lexer {
     text: String,
     index: usize,
     tokens: Vec<Token>,
     buf: String,
-    keywords: HashMap<String, Token>
+    keywords: HashMap<String, Token>,
 }
 
 impl Lexer {
     pub fn get_char(&mut self) -> char {
         let res = self.text.as_bytes()[self.index] as char;
-        self.index+=1;
+        self.index += 1;
         res
     }
 
@@ -38,12 +38,13 @@ impl Lexer {
         keywords.insert("var".to_string(), Token::Keyword(KeywordType::Variable));
         keywords.insert("let".to_string(), Token::Keyword(KeywordType::Variable));
         keywords.insert("loop".to_string(), Token::Keyword(KeywordType::Loop));
+        keywords.insert("break".to_string(), Token::Keyword(KeywordType::Break));
         Self {
             text,
             index: 0,
             tokens: vec![],
             buf: String::new(),
-            keywords
+            keywords,
         }
     }
 
@@ -58,16 +59,10 @@ impl Lexer {
     pub fn parse_buf(&mut self) -> Token {
         return match self.parse_keyword() {
             Some(v) => v.clone(),
-            None => {
-                match self.parse_number() {
-                    Some(v) => {
-                        v.clone()
-                    }
-                    None => {
-                        Token::Identifier(self.buf.to_string())
-                    }
-                }
-            }
+            None => match self.parse_number() {
+                Some(v) => v.clone(),
+                None => Token::Identifier(self.buf.to_string()),
+            },
         };
     }
 
@@ -78,9 +73,7 @@ impl Lexer {
     fn parse_number(self: &mut Self) -> Option<Token> {
         match self.buf.parse::<i32>() {
             Ok(v) => Some(Token::Literal(LiteralType::Int(v))),
-            Err(_) => {
-                None
-            }
+            Err(_) => None,
         }
     }
 
@@ -152,20 +145,18 @@ impl Lexer {
                     while self.peek_char() != '\'' {
                         self.buf_get();
                     }
+                    self.get_char();
                     self.flush_buf()
                 }
                 '\"' => {
                     while self.peek_char() != '\"' {
                         self.buf_get();
                     }
+                    self.get_char();
                     self.flush_buf()
                 }
-                ref i if {i.is_whitespace()} => {
-                    self.flush_buf()
-                }
-                v => {
-                    self.buf.push(v)
-                }
+                ref i if { i.is_whitespace() } => self.flush_buf(),
+                v => self.buf.push(v),
             }
         }
         print_list(&self.tokens);

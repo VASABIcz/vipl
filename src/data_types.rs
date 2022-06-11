@@ -1,6 +1,4 @@
-
-
-use std::fmt::{Debug};
+use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub enum Op {
@@ -40,6 +38,7 @@ pub enum KeywordType {
     Loop,
     If,
     Function,
+    Break,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

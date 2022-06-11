@@ -10,8 +10,8 @@ pub struct CodeGen {
 }
 #[derive(Debug, Clone)]
 pub struct Body {
-    state: CodeGen, // FIXME
-    body: Vec<Operation>,
+    pub(crate) state: CodeGen, // FIXME
+    pub(crate) body: Vec<Operation>,
 }
 
 #[derive(Debug, Clone)]
@@ -37,6 +37,7 @@ pub enum Operation {
     Return {
         exp: Expression,
     },
+    Break,
 }
 
 #[derive(Debug, Clone)]

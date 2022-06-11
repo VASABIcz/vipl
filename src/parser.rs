@@ -1,32 +1,11 @@
-use crate::code_gen::FunctionDef;
+use crate::code_gen::{Body, FunctionDef};
 use crate::data_types::Token::*;
 use crate::data_types::*;
 use crate::LiteralType::String;
-use crate::Operation;
+use crate::{CodeGen, Operation};
 
-
-
-
-fn parseeee() {
-    /*
-    required keyword function
-    required identifier name
-    required separator ORB
-
-    optional identifier
-    optional multiple {
-        required separator colon
-        required identifier
-    }
-    optional colon
-
-    required separator CRB
-
-    required separator OCB
-    // BODY
-    required separator CCB
-     */
-}
+// TODO variable assignment
+// TODO better errors?
 
 pub struct Parser {
     pub(crate) tokens: Vec<Token>,
@@ -98,6 +77,8 @@ impl Parser {
     pub fn parse_return(self: &mut Self) -> Operation {
         self.get_token_assert(Token::Keyword(KeywordType::Return));
         let exp = self.parse_expression();
+        println!("AMOGSUS");
+        self.get_token_assert(Token::Separator(SeparatorType::Semicolon));
         return match exp {
             Operation::Evaluation { exp } => Operation::Return { exp },
             _ => panic!("expected expression got {:?}", exp),
@@ -105,7 +86,33 @@ impl Parser {
     }
 
     pub fn parse_if(self: &mut Self) -> Operation {
-        unimplemented!()
+        self.get_token_assert(Token::Keyword(KeywordType::If));
+        self.get_token_assert(Token::Separator(SeparatorType::OpeningRoundBracket));
+        let toks = self
+            .reed_expression_until(|t| t == &Token::Separator(SeparatorType::ClosingRoundBracket));
+        let exp = self.parse_test(&toks);
+        self.get_token_assert(Token::Separator(SeparatorType::ClosingRoundBracket));
+        self.get_token_assert(Token::Separator(SeparatorType::OpeningCurlyBracket));
+        let if_body = self.parse_body();
+        // self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
+        let mut else_body = vec![];
+        if self.peek_token_equal(Token::Keyword(KeywordType::Else)) {
+            self.get_token_assert(Token::Keyword(KeywordType::Else));
+            self.get_token_assert(Token::Separator(SeparatorType::OpeningCurlyBracket));
+            else_body = self.parse_body();
+            //self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
+        }
+        Operation::ControlFlow {
+            exp,
+            yes: Body {
+                state: CodeGen::new(),
+                body: if_body,
+            },
+            no: Body {
+                state: CodeGen::new(),
+                body: else_body,
+            },
+        }
     }
 
     pub fn parse_variable(self: &mut Self) -> Operation {
@@ -114,6 +121,7 @@ impl Parser {
         let name = self.get_token_string();
         self.get_token_assert(Token::Separator(SeparatorType::Assign));
         let exp = self.parse_expression();
+        self.get_token_assert(Token::Separator(SeparatorType::Semicolon));
         return match exp {
             Operation::Evaluation { exp } => Operation::Variable {
                 typ: VariableType::Var,
@@ -183,11 +191,12 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self) -> Operation {
+        println!("parse expr:");
+        print_list(&self.tokens[self.index..self.tokens.len()]);
         let mut tokens = Vec::new();
         while !self.peek_token_equal(Token::Separator(SeparatorType::Semicolon)) {
             tokens.push(self.get_token().unwrap())
         }
-        // self.get_token();
         println!("exp to be parsed");
         print_list(&tokens);
         Operation::Evaluation {
@@ -298,6 +307,8 @@ impl Parser {
     }
 
     fn parse_test(&mut self, tokens: &[Token]) -> Expression {
+        println!("parse test:");
+        print_list(&tokens);
         let i = self.find_split_point(&tokens);
 
         if i == 0 && tokens.len() > 1 {
@@ -308,14 +319,14 @@ impl Parser {
                         print_list(&tokens);
                         return self.parse_function_call(&tokens);
                     } else {
-                        panic!()
+                        panic!("expected expression got {:?}", &tokens[i])
                     }
                 }
                 Separator(v) => {
                     if v == &SeparatorType::OpeningRoundBracket {
                         return self.parse_test(&tokens[1..tokens.len() - 1]);
                     } else {
-                        panic!()
+                        panic!("unexpected {:?}", v);
                     }
                 }
                 _ => panic!(""),
@@ -420,31 +431,60 @@ impl Parser {
     }
 
     pub fn parse_loop(self: &mut Self) -> Operation {
-        unimplemented!()
+        self.get_token_assert(Token::Keyword(KeywordType::Loop));
+        self.get_token_assert(Token::Separator(SeparatorType::OpeningCurlyBracket));
+        let body = self.parse_body();
+        // self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
+
+        Operation::Loop {
+            body: Body {
+                state: CodeGen::new(),
+                body,
+            },
+        }
+    }
+
+    pub fn parse_break(self: &mut Self) -> Operation {
+        self.get_token_assert(Token::Keyword(KeywordType::Break));
+        self.get_token_assert(Token::Separator(SeparatorType::Semicolon));
+
+        Operation::Break
+    }
+
+    pub fn parse_body_expr(&mut self) -> Operation {
+        let o = self.parse_expression();
+        self.get_token_assert(Token::Separator(SeparatorType::Semicolon));
+        println!("after body parse");
+        print_list(&self.tokens[self.index..self.tokens.len()]);
+        o
     }
 
     pub fn parse_body(self: &mut Self) -> Vec<Operation> {
         let mut operations = Vec::new();
 
         while !self.peek_token_equal(Token::Separator(SeparatorType::ClosingCurlyBracket)) {
-            while !self.peek_token_equal(Token::Separator(SeparatorType::Semicolon)) {
-                // FIXME
-                operations.push(match self.peek_token().unwrap() {
-                    Keyword(v) => match v {
-                        KeywordType::Return => self.parse_return(),
-                        KeywordType::Variable => self.parse_variable(),
-                        KeywordType::Loop => self.parse_loop(),
-                        KeywordType::If => self.parse_if(),
-                        _ => panic!(
-                            "unexpected keyword while parsing body {:?}",
-                            self.peek_token().unwrap()
-                        ),
-                    },
-                    _ => self.parse_expression(),
-                })
-            }
-            self.get_token().unwrap();
+            // FIXME
+            println!("body {:?}", self.peek_token().unwrap());
+            operations.push(match self.peek_token().unwrap() {
+                Keyword(v) => match v {
+                    KeywordType::Return => self.parse_return(),
+                    KeywordType::Variable => self.parse_variable(),
+                    KeywordType::Loop => self.parse_loop(),
+                    KeywordType::If => self.parse_if(),
+                    KeywordType::Break => self.parse_break(),
+                    _ => panic!(
+                        "unexpected keyword while parsing body {:?}",
+                        self.peek_token().unwrap()
+                    ),
+                },
+                _ => {
+                    println!("OOF");
+                    self.parse_body_expr()
+                }
+            });
         }
+        self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
+        println!("angus");
         return operations;
     }
 
@@ -475,7 +515,7 @@ impl Parser {
         let body = self.parse_body();
         // println!("{}", self.index);
 
-        //self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
+        // self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
         let f = FunctionDef {
             body,
             name,
