@@ -1,65 +1,65 @@
-
+use crate::data_types::*;
 use std::collections::HashMap;
 use std::fmt::Display;
-use crate::data_types::*;
 
 #[derive(Debug, Clone)]
 pub struct CodeGen {
     offset: u32,
     pub(crate) generated: String,
-    variables: HashMap<String, u32>
+    variables: HashMap<String, u32>,
 }
 #[derive(Debug, Clone)]
 pub struct Body {
     state: CodeGen, // FIXME
-    body: Vec<Operation>
+    body: Vec<Operation>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Operation {
     // special type return, break
-    Variable {  // FIXME variable declaration / assignment
-    typ: VariableType,
+    Variable {
+        // FIXME variable declaration / assignment
+        typ: VariableType,
         name: String,
-        exp: Expression
+        exp: Expression,
     },
     Loop {
-        body: Body
+        body: Body,
     },
     Evaluation {
-        exp: Expression
+        exp: Expression,
     },
     ControlFlow {
         exp: Expression,
         yes: Body,
-        no: Body
+        no: Body,
     },
     Return {
-        exp: Expression
-    }
+        exp: Expression,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct FunctionDef {
     pub(crate) body: Vec<Operation>,
     pub(crate) name: String,
-    pub(crate) arguments: Vec<String>
+    pub(crate) arguments: Vec<String>,
 }
 
 impl CodeGen {
     pub fn inc(self: &mut Self) {
-        self.offset+=1;
+        self.offset += 1;
     }
 
     pub fn dec(self: &mut Self) {
-        self.offset+=1;
+        self.offset += 1;
     }
 
     pub fn new() -> Self {
         let mut a = Self {
             offset: 0,
             generated: "".to_string(),
-            variables: HashMap::new()
+            variables: HashMap::new(),
         };
         a.add_line("; V-I-P-L : v0.0000001".to_string());
         a.add_line("; Vasova".to_string());
@@ -67,20 +67,20 @@ impl CodeGen {
         a.add_line("; Programing".to_string());
         a.add_line("; Language".to_string());
         a.add_line("; TODO programing language :D\n".to_string());
-        return a
+        return a;
     }
 
     pub fn arithmetic<T: Display, R: Display>(self: &mut Self, op: T, v: R) {
         // self.add_line(format!(";//{} {} to [ebp-{}]", op, v, 4*(self.offset-1)));
-        self.add_line(format!("mov eax, [ebp-{}]", 4*(self.offset-1)));
+        self.add_line(format!("mov eax, [ebp-{}]", 4 * (self.offset - 1)));
         self.add_line(format!("{op} eax, {}", v));
-        self.add_line(format!("mov dword [ebp-{}], eax", 4*(self.offset-1)));
+        self.add_line(format!("mov dword [ebp-{}], eax", 4 * (self.offset - 1)));
     }
 
     pub fn arithmetic_previous<T: Display>(self: &mut Self, op: T) {
-        self.add_line(format!("mov eax, [ebp-{}]", 4*(self.offset-2)));
-        self.add_line(format!("{op} eax, [ebp-{}]", 4*(self.offset-1)));
-        self.add_line(format!("mov dword [ebp-{}], eax", 4*(self.offset-2)));
+        self.add_line(format!("mov eax, [ebp-{}]", 4 * (self.offset - 2)));
+        self.add_line(format!("{op} eax, [ebp-{}]", 4 * (self.offset - 1)));
+        self.add_line(format!("mov dword [ebp-{}], eax", 4 * (self.offset - 2)));
     }
 
     fn push<T: Display>(self: &mut Self, v: T) {
@@ -105,13 +105,9 @@ impl CodeGen {
 
     pub fn get_variable_ptr(self: &mut Self, name: &str) -> Option<String> {
         return match self.variables.get(name) {
-            None => {
-                None
-            }
-            Some(v) => {
-                Some(format!("ebp-{}", v*4))
-            }
-        }
+            None => None,
+            Some(v) => Some(format!("ebp-{}", v * 4)),
+        };
     }
 
     pub fn asm2sym(asm: &str) -> &str {
@@ -124,7 +120,7 @@ impl CodeGen {
                 eprintln!("unknown asm {} in asm2sym", asm);
                 "UNKNOWN"
             }
-        }
+        };
     }
 
     pub fn gen_invoke_function(self: &mut Self, name: String) {
@@ -135,37 +131,30 @@ impl CodeGen {
         match *a {
             Expression::Operator(op) => {
                 match op {
-                    Op::Function(_, _, _, _, _, _, _) => {
+                    Op::Function(_, _) => {
                         // unimplemented!();
                         self.handle_function_call(op)
                     }
                     _ => {
                         let (l, r, op) = match op {
-                            Op::Sub(l, r) => {
-                                (l, r, String::from("sub"))
-                            }
-                            Op::Mul(l, r) => {
-                                (l, r, String::from("imul"))
-                            }
-                            Op::Add(l, r) => {
-                                (l, r, String::from("add"))
-                            }
-                            Op::Div(l, r) => {
-                                (l, r, String::from("div"))
-                            }
-                            _ => panic!("idk")
+                            Op::Sub(l, r) => (l, r, String::from("sub")),
+                            Op::Mul(l, r) => (l, r, String::from("imul")),
+                            Op::Add(l, r) => (l, r, String::from("add")),
+                            Op::Div(l, r) => (l, r, String::from("div")),
+                            _ => panic!("idk"),
                         };
                         match *l {
                             Expression::Literal(v1) => {
                                 self.push(v1);
                                 match *r {
                                     Expression::Literal(v) => {
-                                        self.add_line(format!("; {v1} {} {v}", CodeGen::asm2sym(&op)));
+                                        self.add_line(format!(
+                                            "; {v1} {} {v}",
+                                            CodeGen::asm2sym(&op)
+                                        ));
                                         self.arithmetic(&op, v);
                                     }
-                                    Expression::Operator(_) => {
-                                        self.gen_expression(r, false)
-                                    }
+                                    Expression::Operator(_) => self.gen_expression(r, false),
                                     Expression::Variable(_) => {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} ebp-{} {}", 4*(self.offset-1), 8))
@@ -203,9 +192,7 @@ impl CodeGen {
                                     Expression::Literal(v) => {
                                         self.arithmetic(op, v);
                                     }
-                                    Expression::Operator(_) => {
-                                        self.gen_expression(r, false)
-                                    }
+                                    Expression::Operator(_) => self.gen_expression(r, false),
                                     Expression::Variable(_) => {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} [ebp-{}] {}", 4*(self.offset-1), 8))
@@ -241,18 +228,14 @@ impl CodeGen {
 
     pub fn handle_function_call(self: &mut Self, function: Op) {
         match function {
-            Op::Function(name, a1, a2, a3, a4, a5, a6) => {
-                if !(*a1).is_none() {
-                    self.add_line(format!("; argument 1 for {}", name));
-                    self.handle_argument((Box::new((*a1).unwrap())))
-                }
-                if !(*a2).is_none() {
-                    self.add_line(format!("; argument 2 for {}", name));
-                    self.handle_argument(Box::new((*a2).unwrap()))
+            Op::Function(name, args) => {
+                for (i, a) in args.iter().enumerate() {
+                    self.add_line(format!("; argument {} for {}", i, name));
+                    self.handle_argument(Box::new(a.clone()));
                 }
                 self.gen_invoke_function(name)
             }
-            _ => panic!("not a function")
+            _ => panic!("not a function"),
         }
     }
     pub fn gen_variable_dec(self: &mut Self, name: &str, typ: VariableType, size: u32) {
@@ -265,19 +248,15 @@ impl CodeGen {
                 for _ in 0..size {
                     self.push(0);
                 }
-                self.variables.insert(name.to_string(), self.offset-1);
+                self.variables.insert(name.to_string(), self.offset - 1);
             }
         }
-    }
-
-    pub fn gen_variable() {
-
     }
 
     pub fn handle_body(self: &mut Self, body: Vec<Operation>) {
         for o in body {
             match o {
-                Operation::Variable { typ, name, exp } => {
+                Operation::Variable { typ: _, name, exp } => {
                     if self.get_variable_ptr(&name) == None {
                         self.gen_variable_dec(&name, VariableType::Var, 1);
                     }
@@ -289,9 +268,7 @@ impl CodeGen {
                 Operation::Loop { .. } => {
                     unimplemented!()
                 }
-                Operation::Evaluation { exp } => {
-                    self.gen_expression(Box::new(exp), true)
-                }
+                Operation::Evaluation { exp } => self.gen_expression(Box::new(exp), true),
                 Operation::ControlFlow { .. } => {
                     unimplemented!()
                 }

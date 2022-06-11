@@ -1,6 +1,6 @@
-use core::option::Option;
-use core::option::Option::{None, Some};
-use core::result::Result::{Err, Ok};
+
+
+use std::fmt::{Debug};
 
 #[derive(Debug, Clone)]
 pub enum Op {
@@ -8,7 +8,7 @@ pub enum Op {
     Mul(Box<Expression>, Box<Expression>),
     Add(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
-    Function(String, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>, Box<Option<Expression>>)
+    Function(String, Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -16,20 +16,20 @@ pub enum OpType {
     Sub,
     Mul,
     Add,
-    Div
+    Div,
 }
 
 #[derive(Debug, Clone)]
 pub enum Expression {
     Literal(i32),
     Operator(Op),
-    Variable(String)
+    Variable(String),
 }
 
 #[derive(Debug, Clone)]
 pub enum VariableType {
     Static,
-    Var
+    Var,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -39,7 +39,7 @@ pub enum KeywordType {
     Else,
     Loop,
     If,
-    Function
+    Function,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -53,7 +53,7 @@ pub enum SeparatorType {
     Semicolon,
     Comma,
     Colon,
-    Assign
+    Assign,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,7 +69,7 @@ pub enum OperatorType {
     And,
     Or,
     Mul,
-    Div
+    Div,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -94,5 +94,12 @@ pub enum State {
     Symbol,
     Number,
     Str,
-    None
+    None,
+}
+
+pub fn print_list<V: Debug>(list: &[V]) {
+    for i in list {
+        println!("{:?}", i);
+    }
+    println!()
 }
