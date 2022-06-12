@@ -146,14 +146,16 @@ impl Lexer {
                         self.buf_get();
                     }
                     self.get_char();
-                    self.flush_buf()
+                    self.add(Token::Literal(LiteralType::Int(self.parse_char() as u8 as i32)));
+                    self.buf.clear();
                 }
                 '\"' => {
                     while self.peek_char() != '\"' {
                         self.buf_get();
                     }
                     self.get_char();
-                    self.flush_buf()
+                    self.add(Token::Literal(LiteralType::String(self.buf.clone())));
+                    self.buf.clear();
                 }
                 ref i if { i.is_whitespace() } => self.flush_buf(),
                 v => self.buf.push(v),
@@ -164,6 +166,20 @@ impl Lexer {
 
     pub fn tokens(&self) -> Vec<Token> {
         self.tokens.clone()
+    }
+
+    pub fn parse_char(&self) -> char {
+        match self.buf.as_str() {
+            "\\n" => {
+                '\n'
+            }
+            "\\r" => {
+                '\r'
+            }
+            _ => {
+                self.buf.chars().next().unwrap()
+            }
+        }
     }
 }
 

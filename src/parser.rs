@@ -1,4 +1,4 @@
-use crate::code_gen::{Body, FunctionDef};
+use crate::code_gen::{FunctionDef};
 use crate::data_types::Token::*;
 use crate::data_types::*;
 use crate::LiteralType::String;
@@ -36,7 +36,7 @@ impl Parser {
     }
 
     pub fn peek_token_equal(self: &Self, token: Token) -> bool {
-        println!("token: {:?}", &token);
+        println!("peek token: {:?}", &token);
         let t = self.peek_token().unwrap();
         match token {
             Identifier(_) => match t {
@@ -50,6 +50,10 @@ impl Parser {
 
     pub fn consume(self: &mut Self) {
         self.index += 1;
+    }
+
+    pub fn has_token(&self) -> bool {
+        self.tokens.len() > self.index
     }
 
     pub fn assert_token(self: &Self, token: Token, token1: Token) {
@@ -77,7 +81,6 @@ impl Parser {
     pub fn parse_return(self: &mut Self) -> Operation {
         self.get_token_assert(Token::Keyword(KeywordType::Return));
         let exp = self.parse_expression();
-        println!("AMOGSUS");
         self.get_token_assert(Token::Separator(SeparatorType::Semicolon));
         return match exp {
             Operation::Evaluation { exp } => Operation::Return { exp },
@@ -104,14 +107,8 @@ impl Parser {
         }
         Operation::ControlFlow {
             exp,
-            yes: Body {
-                state: CodeGen::new(),
-                body: if_body,
-            },
-            no: Body {
-                state: CodeGen::new(),
-                body: else_body,
-            },
+            yes: if_body,
+            no: else_body,
         }
     }
 
@@ -329,7 +326,10 @@ impl Parser {
                         panic!("unexpected {:?}", v);
                     }
                 }
-                _ => panic!(""),
+                Token::Literal(LiteralType::String(v)) => {
+                    return Expression::Str(v.clone());
+                }
+                _ => panic!()
             }
         }
 
@@ -357,8 +357,9 @@ impl Parser {
             Identifier(v) => Expression::Variable(v.clone()),
             Literal(v) => match v {
                 LiteralType::Int(v) => Expression::Literal(*v),
-                String(_) => {
-                    unimplemented!()
+                String(v) => {
+                    Expression::Str(v.clone())
+                    //unimplemented!()
                 }
             },
             _ => {
@@ -437,10 +438,7 @@ impl Parser {
         // self.get_token_assert(Token::Separator(SeparatorType::ClosingCurlyBracket));
 
         Operation::Loop {
-            body: Body {
-                state: CodeGen::new(),
-                body,
-            },
+            body,
         }
     }
 
@@ -524,6 +522,12 @@ impl Parser {
         self.ast.push(f.clone());
 
         f
+    }
+
+    pub fn parse(&mut self) {
+        while self.has_token() {
+            self.parse_function();
+        }
     }
 }
 

@@ -3,14 +3,18 @@ mod data_types;
 mod lexer;
 mod lexer_prototype;
 mod parser;
+mod interpreter;
 
 extern crate core;
 
+use std::borrow::Borrow;
+use std::collections::HashMap;
 use crate::code_gen::{CodeGen, Operation};
 use crate::data_types::*;
 // use crate::lexer::*;
 use crate::lexer_prototype::*;
 use crate::parser::Parser;
+use crate::interpreter::*;
 
 /*
 DONE
@@ -54,26 +58,24 @@ fn main() {
 
  */
 
+fn print(args: Vec<LiteralType>) -> () {
+    println!("builtin print");
+    for a in args {
+        println!("{:?}", a);
+    }
+}
+
 // x = test(5-y*3, (7-3)*(5+8))
 pub fn main() {
     let to_parse = r#"
-    fn __main() {
-        let a=79+38*test(91);
-
-        if (1) {
-            print("uwu");
-        }
-
-        let a = 0;
+    fn main() {
+        let i = 0;
         loop {
-            let a = a + 1;
-
-            if (a-10) {
+            let i = i + 1;
+            if (i-10) {
                 break;
             }
         }
-
-        return 0;
     }
     "#;
     let mut lexer = Lexer::new(to_parse.to_string());
@@ -86,6 +88,21 @@ pub fn main() {
         index: 0,
         ast: vec![],
     };
-    let ast = parser.parse_function();
-    println!("ast: {:?}", &ast)
+    parser.parse();
+    let ast = parser.ast;
+    println!("ast: {:?}", &ast);
+    let mut builtin = HashMap::new();
+    builtin.insert("print".to_string(), print as fn(Vec<LiteralType>));
+
+    let mut i = Interpreter {
+        functions: HashMap::new(),
+        builtin: builtin.clone()
+    };
+    i.interpret(ast)
+
+
+    // let mut g = CodeGen::new();
+    // g.code_gen(ast);
+    // let asm = g.generated;
+    // println!("asm: {}", &asm)
 }

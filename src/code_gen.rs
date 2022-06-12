@@ -1,6 +1,7 @@
 use crate::data_types::*;
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, format};
+
 
 #[derive(Debug, Clone)]
 pub struct CodeGen {
@@ -8,11 +9,11 @@ pub struct CodeGen {
     pub(crate) generated: String,
     variables: HashMap<String, u32>,
 }
-#[derive(Debug, Clone)]
-pub struct Body {
-    pub(crate) state: CodeGen, // FIXME
-    pub(crate) body: Vec<Operation>,
-}
+// #[derive(Debug, Clone)]
+// pub struct Body {
+//     pub(crate) state: CodeGen, // FIXME
+//     pub(crate) body: Vec<Operation>,
+// }
 
 #[derive(Debug, Clone)]
 pub enum Operation {
@@ -24,15 +25,15 @@ pub enum Operation {
         exp: Expression,
     },
     Loop {
-        body: Body,
+        body: Vec<Operation>,
     },
     Evaluation {
         exp: Expression,
     },
     ControlFlow {
         exp: Expression,
-        yes: Body,
-        no: Body,
+        yes: Vec<Operation>,
+        no: Vec<Operation>,
     },
     Return {
         exp: Expression,
@@ -62,12 +63,12 @@ impl CodeGen {
             generated: "".to_string(),
             variables: HashMap::new(),
         };
-        a.add_line("; V-I-P-L : v0.0000001".to_string());
-        a.add_line("; Vasova".to_string());
-        a.add_line("; Insane".to_string());
-        a.add_line("; Programing".to_string());
-        a.add_line("; Language".to_string());
-        a.add_line("; TODO programing language :D\n".to_string());
+        // a.add_line("; V-I-P-L : v0.0000001".to_string());
+        // a.add_line("; Vasova".to_string());
+        // a.add_line("; Insane".to_string());
+        // a.add_line("; Programing".to_string());
+        // a.add_line("; Language".to_string());
+        // a.add_line("; TODO programing language :D\n".to_string());
         return a;
     }
 
@@ -85,7 +86,7 @@ impl CodeGen {
     }
 
     fn push<T: Display>(self: &mut Self, v: T) {
-        self.add_line(format!("push {}", v));
+        self.add_line(format!("push {} ; ebp-{}", v, 4*(self.offset)));
         self.inc()
     }
 
@@ -107,7 +108,7 @@ impl CodeGen {
     pub fn get_variable_ptr(self: &mut Self, name: &str) -> Option<String> {
         return match self.variables.get(name) {
             None => None,
-            Some(v) => Some(format!("ebp-{}", v * 4)),
+            Some(v ) => Some(format!("ebp-{}", v * 4)),
         };
     }
 
@@ -129,6 +130,7 @@ impl CodeGen {
     }
 
     pub fn gen_expression(self: &mut Self, a: Box<Expression>, free: bool) {
+        println!("gen expr {:?}", &a);
         match *a {
             Expression::Operator(op) => {
                 match op {
@@ -155,11 +157,16 @@ impl CodeGen {
                                         ));
                                         self.arithmetic(&op, v);
                                     }
-                                    Expression::Operator(_) => self.gen_expression(r, false),
+                                    Expression::Operator(_) => {
+                                        self.gen_expression(r, false);
+                                        self.arithmetic_previous(op);
+                                        self.pop0();
+                                    },
                                     Expression::Variable(_) => {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} ebp-{} {}", 4*(self.offset-1), 8))
                                     }
+                                    _ => panic!("string not expected")
                                 }
                                 if free {
                                     self.pop0();
@@ -181,6 +188,7 @@ impl CodeGen {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} [ebp-{}] {}", 4*(self.offset-1), 5))
                                     }
+                                    _ => panic!("string not expected")
                                 }
 
                                 if free {
@@ -198,11 +206,13 @@ impl CodeGen {
                                         unimplemented!();
                                         // d.push_str(&format!("{op} [ebp-{}] {}", 4*(self.offset-1), 8))
                                     }
+                                    _ => panic!("string not expected")
                                 }
                                 if free {
                                     self.pop0();
                                 }
                             }
+                            _ => panic!("string not expected")
                         }
                     }
                 }
@@ -220,6 +230,7 @@ impl CodeGen {
                     self.pop0();
                 }
             }
+            _ => {}
         }
     }
 
@@ -273,10 +284,27 @@ impl CodeGen {
                 Operation::ControlFlow { .. } => {
                     unimplemented!()
                 }
+                Operation::Return { exp } => {
+                    self.gen_expression(Box::new(exp), false);
+                    self.add_line(format!("ret [ebp-{}]",  4 * (self.offset - 1)))
+                }
                 _ => {
                     unimplemented!()
                 }
             }
+        }
+    }
+
+    pub fn code_gen(&mut self, ast: Vec<FunctionDef>) {
+        for f in ast {
+            self.add_line(format!("{}:", f.name));
+            let mut g = CodeGen::new();
+            for a in f.arguments {
+                g.variables.insert(a, self.offset*4);
+                self.inc();
+            }
+            g.handle_body(f.body);
+            self.generated.push_str(&g.generated);
         }
     }
 }

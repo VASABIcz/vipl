@@ -22,6 +22,7 @@ pub enum Expression {
     Literal(i32),
     Operator(Op),
     Variable(String),
+    Str(String)
 }
 
 #[derive(Debug, Clone)]

@@ -16,20 +16,18 @@ main:
     mov ebp, esp
     sub ebp, 4
 
-    ; V-I-P-L : v0.0000001
-    ; Vasova
-    ; Insane
-    ; Programing
-    ; Language
-    ; TODO programing language :D
-
-    ; variable angus
-    push 0
-    push 5
-    ; 5 + 7
+    ; variable a
+    push 0 ; ebp-0
+    push 79 ; ebp-4
+    push 38 ; ebp-8
+    ; 38 * 91
+    mov eax, [ebp-8]
+    imul eax, 91
+    mov dword [ebp-8], eax
     mov eax, [ebp-4]
-    add eax, 7
+    add eax, [ebp-8]
     mov dword [ebp-4], eax
+    pop edx
     pop eax
     mov dword [ebp-0], eax
 
