@@ -58,10 +58,20 @@ fn main() {
 
  */
 
-fn print(args: Vec<LiteralType>) -> () {
-    println!("builtin print");
+fn print(args: Vec<LiteralType>) -> LiteralType {
+    // println!("builtin print");
     for a in args {
-        println!("{:?}", a);
+        println!("p: {:?}", a);
+    }
+    LiteralType::Int(1)
+}
+
+fn eq(args: Vec<LiteralType>) -> LiteralType {
+    if args[0] == args[1] {
+        LiteralType::Int(1)
+    }
+    else {
+        LiteralType::Int(0)
     }
 }
 
@@ -72,7 +82,7 @@ pub fn main() {
         const i = 0;
         loop {
             const i = i + 1;
-            if (i-10) {
+            if (eq(i, 10)) {
                 print("jj");
                 break;
             }
@@ -96,7 +106,8 @@ pub fn main() {
     let ast = parser.ast;
     println!("ast: {:?}", &ast);
     let mut builtin = HashMap::new();
-    builtin.insert("print".to_string(), print as fn(Vec<LiteralType>));
+    builtin.insert("print".to_string(), print as fn(Vec<LiteralType>) -> LiteralType);
+    builtin.insert("eq".to_string(), eq as fn(Vec<LiteralType>) -> LiteralType);
 
     let mut i = Interpreter {
         functions: HashMap::new(),

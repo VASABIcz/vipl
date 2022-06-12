@@ -15,7 +15,7 @@ struct Scope {
 
 pub struct Interpreter {
     pub(crate) functions: HashMap<std::string::String, FunctionDef>,
-    pub builtin: HashMap<std::string::String, fn(Vec<LiteralType>)>,
+    pub builtin: HashMap<std::string::String, fn(Vec<LiteralType>) -> LiteralType>,
     pub heep: HashMap<std::string::String, LiteralType>
 }
 
@@ -35,7 +35,7 @@ impl Interpreter {
         for o in f.body.clone() {
             self.execute_operation(&o, &mut s);
         }
-        println!("vars: {:?}", s.variables);
+        // println!("vars: {:?}", s.variables);
     }
 
     fn execute_operation(&mut self, o: &Operation, s: &mut Scope) -> bool {
@@ -66,7 +66,7 @@ impl Interpreter {
                 false
             }
             Operation::Evaluation { exp } => {
-                println!("exp res: {:?}", self.evaluate_exp(exp, s));
+                self.evaluate_exp(exp, s);
                 false
             }
             Operation::ControlFlow { exp, yes, no } => {
@@ -177,7 +177,7 @@ impl Interpreter {
                     Op::Function(n, args) => {
                         let b = self.builtin.get(n);
 
-                        if b == None {
+                        return if b == None {
                             let f = self.functions.get(n).clone().unwrap().clone();
                             let mut s = Scope { variables: HashMap::new() };
                             let mut arguments = vec![];
@@ -191,7 +191,8 @@ impl Interpreter {
                             for o in f.body.clone() {
                                 self.execute_operation(&o, &mut s);
                             }
-                            println!("vars: {:?}", s.variables);
+                            // println!("vars: {:?}", s.variables);
+                            LiteralType::Int(1)
                         }
                         else {
                             let mut arguments = vec![];
@@ -201,7 +202,6 @@ impl Interpreter {
                             }
                             self.builtin.get(n).unwrap()(arguments.clone())
                         }
-                        LiteralType::Int(69)
                     }
                 }
             }
