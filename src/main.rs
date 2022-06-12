@@ -69,11 +69,15 @@ fn print(args: Vec<LiteralType>) -> () {
 pub fn main() {
     let to_parse = r#"
     fn main() {
-        let i = 0;
+        const i = 0;
         loop {
-            let i = i + 1;
+            const i = i + 1;
             if (i-10) {
+                print("jj");
                 break;
+            }
+            else {
+                print("nn");
             }
         }
     }
@@ -96,7 +100,8 @@ pub fn main() {
 
     let mut i = Interpreter {
         functions: HashMap::new(),
-        builtin: builtin.clone()
+        builtin: builtin.clone(),
+        heep: HashMap::new()
     };
     i.interpret(ast)
 

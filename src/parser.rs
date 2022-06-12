@@ -188,7 +188,9 @@ impl Parser {
             println!("gona parse argz");
             print_list(&toks);
             args.push(p.parse_test(&toks));
-            // p.get_token().unwrap();
+            if p.peek_token_equal(Token::Separator(SeparatorType::Comma)) {
+                p.get_token().unwrap();
+            }
         }
         p.get_token().unwrap();
         Expression::Operator(Op::Function(name, args))
@@ -317,13 +319,15 @@ impl Parser {
 
         if i == 0 && tokens.len() > 1 {
             match &tokens[i] {
-                Identifier(_v) => {
+                Identifier(v) => {
                     if tokens[i + 1] == Token::Separator(SeparatorType::OpeningRoundBracket) {
                         println!("parsing function");
                         print_list(&tokens);
                         return self.parse_function_call(&tokens);
                     } else {
-                        panic!("expected expression got {:?}", &tokens[i])
+                        // println!("hah {}", v);
+                        return Expression::Variable(v.clone());
+                        // panic!("expected expression got {:?}", &tokens[i])
                     }
                 }
                 Separator(v) => {
@@ -477,6 +481,7 @@ impl Parser {
                     KeywordType::Loop => self.parse_loop(),
                     KeywordType::If => self.parse_if(),
                     KeywordType::Break => self.parse_break(),
+                    KeywordType::ConstVar => self.parse_variable(),
                     _ => panic!(
                         "unexpected keyword while parsing body {:?}",
                         self.peek_token().unwrap()

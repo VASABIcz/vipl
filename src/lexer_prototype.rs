@@ -119,7 +119,7 @@ impl Lexer {
                 }
                 ',' => {
                     self.flush_buf();
-                    self.add(Separator(SeparatorType::Colon));
+                    self.add(Separator(SeparatorType::Comma));
                 }
                 '+' => {
                     self.flush_buf();

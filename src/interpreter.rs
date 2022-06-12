@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
 use crate::code_gen::FunctionDef;
-use crate::{Expression, LiteralType, Op, Operation};
+use crate::{Expression, LiteralType, Op, Operation, VariableType};
 use crate::Expression::Literal;
 
 // TODO outer scope variable lookup
@@ -10,7 +10,7 @@ use crate::Expression::Literal;
 #[derive(Debug, Clone)]
 struct Scope {
     variables: HashMap<std::string::String, LiteralType>,
-    scope: Option<Box<Scope>>
+    // scope: Option<Box<Scope>>
 }
 
 pub struct Interpreter {
@@ -31,44 +31,34 @@ impl Interpreter {
     }
 
     fn execute_main(&mut self, f: &FunctionDef) {
-        let mut s = Scope { variables: HashMap::new(), scope: None };
+        let mut s = Scope { variables: HashMap::new()};
         for o in f.body.clone() {
             self.execute_operation(&o, &mut s);
         }
         println!("vars: {:?}", s.variables);
     }
 
-    fn execute_operation(&self, o: &Operation, s: &mut Scope) -> bool {
+    fn execute_operation(&mut self, o: &Operation, s: &mut Scope) -> bool {
         match o {
             Operation::Variable { name, exp, typ } => {
-                let x = s.scope.clone();
-                match x {
-                    None => {
-                        match s.variables.get(name) {
-                            None => {
-                                let e = self.evaluate_exp(exp, s);
-                                s.variables.insert(name.clone(), e);
-                            }
-                            Some(v) => {
-                                let e = self.evaluate_exp(exp, s);
-                                s.variables.insert(name.clone(), e);
-                            }
-                        }
-                    }
-                    Some(_) => {
+                match typ {
+                    VariableType::Static => {
                         let e = self.evaluate_exp(exp, s);
-                        s.scope.as_mut().unwrap().variables.insert(name.clone(), e.clone());
+                        self.heep.insert(name.clone(), e);
+                    }
+                    VariableType::Var => {
+                        let e = self.evaluate_exp(exp, s);
+                        s.variables.insert(name.clone(), e);
                     }
                 }
                 false
             }
             Operation::Loop { body } => {
-                let mut s = Scope { variables: HashMap::new(), scope: Some(Box::new(s.clone())) }; // AHHHHHHHHHHHHHHHHHHHHHHHH
+                let mut s = Scope { variables: HashMap::new() }; // AHHHHHHHHHHHHHHHHHHHHHHHH
                 loop {
                     for o in body.clone() {
-                        println!("{:?}", &o);
-                        if self.execute_operation(&o, &mut s) {
-                            break
+                        if self.execute_operation(&o, &mut s) == true {
+                            return false
                         }
                     }
                     thread::sleep(Duration::from_millis(10))
@@ -83,15 +73,15 @@ impl Interpreter {
 
 
                 if self.evaluate_exp(exp, s) == LiteralType::Int(1) {
-                    let mut s = Scope { variables: HashMap::new(), scope: Some(Box::new(s.clone())) };
+                    let mut s = Scope { variables: HashMap::new() };
                     for o in yes.clone() {
-                        if self.execute_operation(&o, &mut s) {
+                        if self.execute_operation(&o, &mut s) == true {
                             return true;
                         }
                     }
                 }
                 else {
-                    let mut s = Scope { variables: HashMap::new(), scope: Some(Box::new(s.clone())) };
+                    let mut s = Scope { variables: HashMap::new() };
                     for o in no.clone() {
                         if self.execute_operation(&o, &mut s) {
                             return true;
@@ -104,12 +94,12 @@ impl Interpreter {
                 true
             }
             Operation::Break => {
-                true
+                return true
             }
         }
     }
 
-    fn evaluate_exp(&self, e: &Expression, s: &Scope) -> LiteralType {
+    fn evaluate_exp(&mut self, e: &Expression, s: &Scope) -> LiteralType {
         return match e {
             Expression::Literal(v) => {
                 LiteralType::Int(*v)
@@ -155,7 +145,6 @@ impl Interpreter {
                             LiteralType::Int(l) => {
                                 match self.evaluate_exp(r, s) {
                                     LiteralType::Int(r) => {
-                                        println!("wtf {} {}", &l, &r);
                                         LiteralType::Int(l+r)
                                     }
                                     LiteralType::String(_) => {
@@ -186,46 +175,43 @@ impl Interpreter {
                         }
                     }
                     Op::Function(n, args) => {
-                        match self.builtin.get(n).clone() {
-                            None => {
-                                let f = self.functions.get(n).clone().unwrap().clone();
-                                let mut s = Scope { variables: HashMap::new(), scope: Some(Box::new(s.clone())) };
-                                let mut arguments = vec![];
-                                for arg in args {
-                                    let e = self.evaluate_exp(arg, &mut s).clone();
-                                    arguments.push(e);
-                                }
-                                for (i, name) in f.arguments.iter().enumerate() {
-                                    s.variables.insert(name.clone(), arguments[i].clone());
-                                }
-                                for o in f.body.clone() {
-                                    self.execute_operation(&o, &mut s);
-                                }
-                                println!("vars: {:?}", s.variables);
+                        let b = self.builtin.get(n);
+
+                        if b == None {
+                            let f = self.functions.get(n).clone().unwrap().clone();
+                            let mut s = Scope { variables: HashMap::new() };
+                            let mut arguments = vec![];
+                            for arg in args {
+                                let e = self.evaluate_exp(arg, &mut s).clone();
+                                arguments.push(e);
                             }
-                            Some(f) => {
-                                let mut arguments = vec![];
-                                for arg in args {
-                                    arguments.push(self.evaluate_exp(arg, s).clone());
-                                }
-                                f(arguments)
+                            for (i, name) in f.arguments.iter().enumerate() {
+                                s.variables.insert(name.clone(), arguments[i].clone());
                             }
+                            for o in f.body.clone() {
+                                self.execute_operation(&o, &mut s);
+                            }
+                            println!("vars: {:?}", s.variables);
+                        }
+                        else {
+                            let mut arguments = vec![];
+                            for arg in args {
+                                let x = self.evaluate_exp(arg, s);
+                                arguments.push(x.clone());
+                            }
+                            self.builtin.get(n).unwrap()(arguments.clone())
                         }
                         LiteralType::Int(69)
                     }
                 }
             }
             Expression::Variable(n) => {
-                match &s.scope {
+                match self.heep.get(n) {
                     None => {
-                        let idk = s.variables.get(n).unwrap().clone();
-                        println!("sadge {} {:?} {:?}",&n, &idk, &s);
-                        idk
+                        s.variables.get(n).unwrap().clone()
                     }
-                    Some(s) => {
-                        let idk = (*s).variables.get(n).unwrap().clone();
-                        println!("Uwu {:?}", &idk);
-                        idk
+                    Some(v) => {
+                        v.clone()
                     }
                 }
             }
