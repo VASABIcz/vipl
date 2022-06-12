@@ -15,7 +15,8 @@ struct Scope {
 
 pub struct Interpreter {
     pub(crate) functions: HashMap<std::string::String, FunctionDef>,
-    pub builtin: HashMap<std::string::String, fn(Vec<LiteralType>)>
+    pub builtin: HashMap<std::string::String, fn(Vec<LiteralType>)>,
+    pub heep: HashMap<std::string::String, LiteralType>
 }
 
 impl Interpreter {
@@ -39,7 +40,7 @@ impl Interpreter {
 
     fn execute_operation(&self, o: &Operation, s: &mut Scope) -> bool {
         match o {
-            Operation::Variable { name, exp, .. } => {
+            Operation::Variable { name, exp, typ } => {
                 let x = s.scope.clone();
                 match x {
                     None => {

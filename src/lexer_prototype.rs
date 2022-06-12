@@ -35,7 +35,7 @@ impl Lexer {
         keywords.insert("True".to_string(), Token::Literal(LiteralType::Int(1)));
         keywords.insert("False".to_string(), Token::Literal(LiteralType::Int(0)));
         keywords.insert("return".to_string(), Token::Keyword(KeywordType::Return));
-        keywords.insert("var".to_string(), Token::Keyword(KeywordType::Variable));
+        keywords.insert("const".to_string(), Token::Keyword(KeywordType::ConstVar));
         keywords.insert("let".to_string(), Token::Keyword(KeywordType::Variable));
         keywords.insert("loop".to_string(), Token::Keyword(KeywordType::Loop));
         keywords.insert("break".to_string(), Token::Keyword(KeywordType::Break));

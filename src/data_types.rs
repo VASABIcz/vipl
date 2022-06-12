@@ -40,6 +40,7 @@ pub enum KeywordType {
     If,
     Function,
     Break,
+    ConstVar
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

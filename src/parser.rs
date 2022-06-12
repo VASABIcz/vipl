@@ -114,14 +114,21 @@ impl Parser {
 
     pub fn parse_variable(self: &mut Self) -> Operation {
         println!("parsing var");
-        self.get_token_assert(Token::Keyword(KeywordType::Variable));
+        let typ = if self.peek_token_equal(Token::Keyword(KeywordType::Variable)) {
+            self.get_token();
+            VariableType::Var
+        }
+        else {
+            self.get_token_assert(Token::Keyword(KeywordType::ConstVar));
+            VariableType::Static
+        };
         let name = self.get_token_string();
         self.get_token_assert(Token::Separator(SeparatorType::Assign));
         let exp = self.parse_expression();
         self.get_token_assert(Token::Separator(SeparatorType::Semicolon));
         return match exp {
             Operation::Evaluation { exp } => Operation::Variable {
-                typ: VariableType::Var,
+                typ,
                 name,
                 exp,
             },
